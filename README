@@ -1,0 +1,40 @@
+# System Monitor API
+
+A lightweight system monitoring API built with FastAPI and Docker.  
+It provides basic system metrics such as disk usage, memory usage, and CPU information.
+
+---
+
+## 1. Project Overview
+
+This project is a simple backend service that exposes system metrics through RESTful APIs.
+
+It is designed to:
+- Practice FastAPI development
+- Understand service structure (routes, services, utils)
+- Learn Docker-based deployment
+- Implement logging and error handling
+
+---
+
+## 2. Features
+
+- Disk usage monitoring
+- Memory usage monitoring
+- CPU process count
+- Unified response format
+- Global exception handling
+- Basic logging support
+- Dockerized deployment
+
+---
+
+## 3. Project Structure
+
+sys_api/
+├── main.py # Entry point
+├── utils.py # Common utilities (logging, response, command execution)
+├── routes/
+│ └── metrics.py # API routes
+├── services/
+│ └── system_metrics.py # Business logic
