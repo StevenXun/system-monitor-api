@@ -1,10 +1,9 @@
-from sys_api.utils import run_command
 import time
+
 from sys_api.utils import run_command
 
 
 def get_disk_metrics(min_usage: int, top_n: int | None = None):
-
     output = run_command(["df", "-h"])
     lines = output.splitlines()
     results = []
@@ -26,22 +25,24 @@ def get_disk_metrics(min_usage: int, top_n: int | None = None):
             if percent_num < min_usage:
                 continue
 
-            results.append({
-                "filesystem": filesystem,
-                "total": total,
-                "used": used,
-                "available": available,
-                "used_percent": percent_num,
-                "mount_point": mount_point
-            })
-# 排序
+            results.append(
+                {
+                    "filesystem": filesystem,
+                    "total": total,
+                    "used": used,
+                    "available": available,
+                    "used_percent": percent_num,
+                    "mount_point": mount_point,
+                }
+            )
+
     results.sort(key=lambda x: x["used_percent"], reverse=True)
 
-# 截断
     if top_n:
         results = results[:top_n]
 
     return results
+
 
 def get_memory_metrics():
     output = run_command(["free", "-h"])
@@ -53,7 +54,7 @@ def get_memory_metrics():
             return {
                 "total": parts[1],
                 "used": parts[2],
-                "free": parts[3]
+                "free": parts[3],
             }
 
     return {}
@@ -70,14 +71,12 @@ def parse_cpu_line(line: str):
 
 
 def get_cpu_metrics():
-    # 第一次读取
     output1 = run_command(["cat", "/proc/stat"])
     cpu_line1 = output1.splitlines()[0]
     idle1, total1 = parse_cpu_line(cpu_line1)
 
     time.sleep(1)
 
-    # 第二次读取
     output2 = run_command(["cat", "/proc/stat"])
     cpu_line2 = output2.splitlines()[0]
     idle2, total2 = parse_cpu_line(cpu_line2)
@@ -90,5 +89,20 @@ def get_cpu_metrics():
         usage = (1 - idle_delta / total_delta) * 100
 
     return {
-        "cpu_usage_percent": round(usage, 2)
+        "cpu_usage_percent": round(usage, 2),
+    }
+
+
+def get_uptime_metrics():
+    output = run_command(["cat", "/proc/uptime"])
+    first_value = output.split()[0]
+    total_seconds = int(float(first_value))
+
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+
+    return {
+        "uptime_seconds": total_seconds,
+        "uptime_readable": f"{days} days, {hours} hours, {minutes} minutes"
     }
