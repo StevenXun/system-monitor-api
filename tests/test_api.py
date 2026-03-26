@@ -1,5 +1,8 @@
 from fastapi.testclient import TestClient
 from sys_api.main import app
+import sys_api.routes.metrics as metrics_routes
+from fastapi import HTTPException
+
 
 client = TestClient(app)
 
@@ -100,3 +103,38 @@ def test_uptime_success():
     assert isinstance(data["data"], dict)
     assert "uptime_seconds" in data["data"]
     assert "uptime_readable" in data["data"]
+
+
+def test_disk_top_n_limit():
+    response = client.get("/disk?top_n=1")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert isinstance(data["data"], list)
+    assert len(data["data"]) <= 1
+
+
+def test_disk_min_usage_zero():
+    response = client.get("/disk?min_usage=0")
+    assert response.status_code == 200
+
+
+def test_disk_min_usage_negative():
+    response = client.get("/disk?min_usage=-1")
+    assert response.status_code == 422
+
+
+def test_disk_internal_error(monkeypatch):
+    def fake_get_disk_metrics(min_usage, top_n=None):
+        raise HTTPException(status_code=500, detail="mocked disk failure")
+
+    monkeypatch.setattr(metrics_routes, "get_disk_metrics", fake_get_disk_metrics)
+
+    response = client.get("/disk")
+    assert response.status_code == 500
+
+    data = response.json()
+    assert data["message"] == "request failed"
+    assert data["data"] is None
+    assert data["error"] == "mocked disk failure"
+    assert "timestamp" in data
