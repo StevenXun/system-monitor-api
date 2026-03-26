@@ -129,8 +129,8 @@ def test_disk_internal_error(monkeypatch):
         raise HTTPException(status_code=500, detail="mocked disk failure")
 
     monkeypatch.setattr(
-        metrics_routes, 
-        "get_disk_metrics", 
+        metrics_routes,
+        "get_disk_metrics",
         fake_get_disk_metrics
         )
 
