@@ -2,6 +2,15 @@ import subprocess
 from datetime import datetime, timezone
 from fastapi import HTTPException
 import logging
+import redis
+
+
+redis_client = redis.Redis(
+    host="redis",
+    port=6379,
+    decode_responses=True
+)
+
 
 logging.basicConfig(
     level=logging.INFO,
