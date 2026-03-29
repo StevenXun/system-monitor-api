@@ -4,41 +4,46 @@ from sys_api.utils import run_command
 
 
 def get_disk_metrics(min_usage: int, top_n: int | None = None):
-    output = run_command(["df", "-h"])
+    output = run_command(["df", "-hP"])
     lines = output.splitlines()
     results = []
 
     for line in lines[1:]:
         parts = line.split()
-        if len(parts) >= 6:
-            filesystem = parts[0]
-            total = parts[1]
-            used = parts[2]
-            available = parts[3]
-            used_percent = parts[4]
-            mount_point = parts[5]
+        if len(parts) < 6:
+            continue
 
-            if filesystem in ["none", "tmpfs", "rootfs"]:
-                continue
+        filesystem = parts[0]
+        total = parts[1]
+        used = parts[2]
+        available = parts[3]
+        used_percent = parts[4]
+        mount_point = parts[5]
 
-            percent_num = int(used_percent.strip("%"))
-            if percent_num < min_usage:
-                continue
+        if filesystem in ["none", "tmpfs", "rootfs"]:
+            continue
 
-            results.append(
-                {
-                    "filesystem": filesystem,
-                    "total": total,
-                    "used": used,
-                    "available": available,
-                    "used_percent": percent_num,
-                    "mount_point": mount_point,
-                }
-            )
+        if not used_percent.endswith("%"):
+            continue
+
+        percent_num = int(used_percent.rstrip("%"))
+        if percent_num < min_usage:
+            continue
+
+        results.append(
+            {
+                "filesystem": filesystem,
+                "total": total,
+                "used": used,
+                "available": available,
+                "used_percent": percent_num,
+                "mount_point": mount_point,
+            }
+        )
 
     results.sort(key=lambda x: x["used_percent"], reverse=True)
 
-    if top_n:
+    if top_n is not None:
         results = results[:top_n]
 
     return results

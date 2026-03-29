@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 import json
 from datetime import datetime, timezone
+from redis.exceptions import RedisError
 
 from sys_api.services.system_metrics import (
     get_cpu_metrics,
@@ -16,11 +17,13 @@ router = APIRouter()
 
 @router.get("/visits")
 def get_visits():
-    count = redis_client.get("health_visits")
+    try:
+        count = redis_client.get("health_visits")
 
-    if count is None:
-        count = 0
-
+        if count is None:
+            count = 0
+    except RedisError as e:
+        logger.warning("failed to increment visits in redis: %s", e)
     return build_response(
         "visit count fetched successfully",
         {"health_visits": int(count)},
@@ -29,15 +32,20 @@ def get_visits():
 
 @router.get("/redis-test")
 def redis_test():
-    redis_client.set("service_name", "system-monitor-api")
-    value = redis_client.get("service_name")
-
+    try:
+        redis_client.set("service_name", "system-monitor-api")
+        value = redis_client.get("service_name")
+    except RedisError as e:
+        logger.warning("failed to increment redis-test in redis: %s", e)
     return build_response("redis test ok", {"service_name": value})
 
 
 @router.get("/health")
 def health_check():
-    redis_client.incr("health_visits")
+    try:
+        redis_client.incr("health_visits")
+    except RedisError as e:
+        logger.warning("failed to increment health in redis: %s", e)
     logger.info("received health request")
     return build_response("service is healthy", {"status": "ok"})
 
@@ -70,19 +78,23 @@ def get_disk(
         "disk_data": results,
     }
 
-    old_data = redis_client.get("last_disk_metrics")
-    should_record_history = True
+    try:
+        old_data = redis_client.get("last_disk_metrics")
+        should_record_history = True
 
-    if old_data:
-        old_payload = json.loads(old_data)
-        if old_payload.get("disk_data") == results:
-            should_record_history = False
+        if old_data:
+            old_payload = json.loads(old_data)
+            if old_payload.get("disk_data") == results:
+                should_record_history = False
 
-    redis_client.set("last_disk_metrics", json.dumps(cache_payload))
+        redis_client.set("last_disk_metrics", json.dumps(cache_payload))
 
-    if should_record_history:
-        redis_client.lpush("disk_history", json.dumps(cache_payload))
-        redis_client.ltrim("disk_history", 0, 9)
+        if should_record_history:
+            redis_client.lpush("disk_history", json.dumps(cache_payload))
+            redis_client.ltrim("disk_history", 0, 9)
+
+    except RedisError as e:
+        logger.warning("redis unavailable while caching disk metrics: %s", e)
 
     return build_response("disk info fetched successfully", results)
 
