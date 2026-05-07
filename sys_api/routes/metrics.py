@@ -2,41 +2,51 @@ from fastapi import APIRouter, Query
 import json
 from datetime import datetime, timezone
 from redis.exceptions import RedisError
-
+import logging
 from sys_api.services.system_metrics import (
     get_cpu_metrics,
     get_disk_metrics,
     get_memory_metrics,
     get_uptime_metrics,
 )
-from sys_api.utils import build_response, logger
-from sys_api.utils import redis_client, now_ts
+from sys_api.utils import redis_client, now_ts, build_response
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+@router.get("/")
+def root():
+    return build_response("system monitor api", {"status": "running"})
 
 
 @router.get("/visits")
 def get_visits():
-    try:
-        count = redis_client.get("health_visits")
+    count = 0
 
-        if count is None:
-            count = 0
+    try:
+        value = redis_client.get("health_visits")
+        if value is not None:
+            count = int(value)
     except RedisError as e:
-        logger.warning("failed to increment visits in redis: %s", e)
+        logger.warning("redis unavailable while fetching visits: %s", e)
+
     return build_response(
         "visit count fetched successfully",
-        {"health_visits": int(count)},
+        {"health_visits": count},
     )
 
 
 @router.get("/redis-test")
 def redis_test():
+    value = None
+
     try:
         redis_client.set("service_name", "system-monitor-api")
         value = redis_client.get("service_name")
     except RedisError as e:
-        logger.warning("failed to increment redis-test in redis: %s", e)
+        logger.warning("redis unavailable in redis-test: %s", e)
+
     return build_response("redis test ok", {"service_name": value})
 
 
@@ -101,7 +111,14 @@ def get_disk(
 
 @router.get("/disk/last")
 def get_last_disk():
-    cached_data = redis_client.get("last_disk_metrics")
+    try:
+        cached_data = redis_client.get("last_disk_metrics")
+    except RedisError as e:
+        logger.warning(
+            "redis unavailable while fetching last disk metrics: %s",
+            e
+            )
+        return build_response("no cached disk info found", {})
 
     if cached_data is None:
         return build_response("no cached disk info found", {})
@@ -135,8 +152,12 @@ def get_last_disk():
 
 @router.get("/disk/history")
 def get_disk_history(limit: int = Query(5, ge=1, le=50)):
-    raw_list = redis_client.lrange("disk_history", 0, limit - 1)
-    history = [json.loads(item) for item in raw_list]
+    try:
+        raw_list = redis_client.lrange("disk_history", 0, limit - 1)
+        history = [json.loads(item) for item in raw_list]
+    except RedisError as e:
+        logger.warning("redis unavailable while fetching disk history: %s", e)
+        history = []
 
     return build_response(
         "disk history fetched successfully",

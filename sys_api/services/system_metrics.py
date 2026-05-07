@@ -3,6 +3,9 @@ import time
 from sys_api.utils import run_command
 
 
+IGNORED_FILESYSTEMS = {"none", "tmpfs", "rootfs"}
+
+
 def get_disk_metrics(min_usage: int, top_n: int | None = None):
     output = run_command(["df", "-hP"])
     lines = output.splitlines()
@@ -10,6 +13,7 @@ def get_disk_metrics(min_usage: int, top_n: int | None = None):
 
     for line in lines[1:]:
         parts = line.split()
+
         if len(parts) < 6:
             continue
 
@@ -20,13 +24,17 @@ def get_disk_metrics(min_usage: int, top_n: int | None = None):
         used_percent = parts[4]
         mount_point = parts[5]
 
-        if filesystem in ["none", "tmpfs", "rootfs"]:
+        if filesystem in IGNORED_FILESYSTEMS:
             continue
 
         if not used_percent.endswith("%"):
             continue
 
-        percent_num = int(used_percent.rstrip("%"))
+        try:
+            percent_num = int(used_percent.rstrip("%"))
+        except ValueError:
+            continue
+
         if percent_num < min_usage:
             continue
 
@@ -41,7 +49,7 @@ def get_disk_metrics(min_usage: int, top_n: int | None = None):
             }
         )
 
-    results.sort(key=lambda x: x["used_percent"], reverse=True)
+    results.sort(key=lambda item: item["used_percent"], reverse=True)
 
     if top_n is not None:
         results = results[:top_n]
@@ -54,43 +62,57 @@ def get_memory_metrics():
     lines = output.splitlines()
 
     for line in lines:
-        if line.startswith("Mem:"):
-            parts = line.split()
-            return {
-                "total": parts[1],
-                "used": parts[2],
-                "free": parts[3],
-            }
+        if not line.startswith("Mem:"):
+            continue
+
+        parts = line.split()
+
+        if len(parts) < 4:
+            return {}
+
+        return {
+            "total": parts[1],
+            "used": parts[2],
+            "free": parts[3],
+        }
 
     return {}
 
 
+def read_first_line(file_path: str):
+    with open(file_path, "r", encoding="utf-8") as file:
+        return file.readline().strip()
+
+
 def parse_cpu_line(line: str):
     parts = line.split()
+
+    if len(parts) < 5:
+        return 0, 0
+
     values = list(map(int, parts[1:]))
 
-    idle = values[3] + values[4]  # idle + iowait
+    idle = values[3] + values[4]
     total = sum(values)
 
     return idle, total
 
 
 def get_cpu_metrics():
-    output1 = run_command(["cat", "/proc/stat"])
-    cpu_line1 = output1.splitlines()[0]
+    cpu_line1 = read_first_line("/proc/stat")
     idle1, total1 = parse_cpu_line(cpu_line1)
 
     time.sleep(1)
 
-    output2 = run_command(["cat", "/proc/stat"])
-    cpu_line2 = output2.splitlines()[0]
+    cpu_line2 = read_first_line("/proc/stat")
     idle2, total2 = parse_cpu_line(cpu_line2)
 
     idle_delta = idle2 - idle1
     total_delta = total2 - total1
 
     usage = 0
-    if total_delta != 0:
+
+    if total_delta > 0:
         usage = (1 - idle_delta / total_delta) * 100
 
     return {
@@ -99,8 +121,8 @@ def get_cpu_metrics():
 
 
 def get_uptime_metrics():
-    output = run_command(["cat", "/proc/uptime"])
-    first_value = output.split()[0]
+    uptime_line = read_first_line("/proc/uptime")
+    first_value = uptime_line.split()[0]
     total_seconds = int(float(first_value))
 
     days = total_seconds // 86400
@@ -109,5 +131,5 @@ def get_uptime_metrics():
 
     return {
         "uptime_seconds": total_seconds,
-        "uptime_readable": f"{days} days, {hours} hours, {minutes} minutes"
+        "uptime_readable": f"{days} days, {hours} hours, {minutes} minutes",
     }

@@ -1,4 +1,36 @@
-.venv/
+# Python cache files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checker / linter cache
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# macOS / Windows system files
+.DS_Store
+Thumbs.db

@@ -4,10 +4,15 @@ services:
     container_name: sys-api
     ports:
       - "8000:8000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      COMMAND_TIMEOUT_SECONDS: 5
     volumes:
       - .:/app
     depends_on:
-      - redis
+      redis:
+        condition: service_started
     restart: always
 
   redis:
@@ -19,6 +24,11 @@ services:
       - redis_data:/data
     restart: always
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
 volumes:
   redis_data:
