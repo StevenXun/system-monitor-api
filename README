@@ -1,40 +1,217 @@
-# System Monitor API
+#  System Monitor API with FastAPI, Redis, and Docker
 
-A lightweight system monitoring API built with FastAPI and Docker.  
-It provides basic system metrics such as disk usage, memory usage, and CPU information.
+## Overview
 
----
+System Monitor API is a FastAPI-based backend service for collecting basic Linux system metrics, such as disk usage, CPU usage, memory usage, and system uptime.
 
-## 1. Project Overview
+The project uses Docker and Docker Compose to provide a consistent development and deployment environment. Redis is integrated for visit counting, caching the latest disk metrics, and keeping a short history of disk usage changes.
 
-This project is a simple backend service that exposes system metrics through RESTful APIs.
+This project has also been deployed on AWS, where it was tested successfully in a cloud-based environment.
 
-It is designed to:
-- Practice FastAPI development
-- Understand service structure (routes, services, utils)
-- Learn Docker-based deployment
-- Implement logging and error handling
 
----
+## Features
 
-## 2. Features
+- Get CPU usage metrics
+- Get memory usage information
+- Get disk usage information
+- Filter disk results by minimum usage percentage
+- Return top N disk partitions by usage
+- Get system uptime
+- Store the latest disk metrics in Redis
+- Keep disk metric history in Redis
+- Count health check visits
+- Provide structured JSON responses
+- Log request method, path, status code, and processing time
 
-- Disk usage monitoring
-- Memory usage monitoring
-- CPU process count
-- Unified response format
-- Global exception handling
-- Basic logging support
-- Dockerized deployment
 
----
+## Tech Stack
 
-## 3. Project Structure
+- Python 3.12
+- FastAPI
+- Uvicorn
+- Redis
+- Docker
+- Docker Compose
+- Pytest
+- Flake8
+- GitHub Actions
 
-sys_api/
-├── main.py # Entry point
-├── utils.py # Common utilities (logging, response, command execution)
-├── routes/
-│ └── metrics.py # API routes
-├── services/
-│ └── system_metrics.py # Business logic
+
+## Project Structure
+
+```text
+.
+├── sys_api
+│   ├── main.py
+│   ├── logging_config.py
+│   ├── utils.py
+│   ├── routes
+│   │   └── metrics.py
+│   └── services
+│       └── system_metrics.py
+├── tests
+│   └── test_api.py
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── requirements-dev.txt
+└── .github
+    └── workflows
+        └── ci.yml
+```
+
+
+## Getting Started
+
+### Install dependencies
+
+```bash
+
+pip install -r requirements-dev.txt
+```
+
+### Run the API locally
+
+```bash
+
+uvicorn sys_api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The interactive API documentation is available at http://localhost:8000/docs
+
+Notice:
+If Redis is running locally, set the Redis host before starting the API:
+
+```bash
+
+REDIS_HOST = localhost uvicorn sys_api.main:app --reload
+```
+
+### Run with Docker
+
+docker compose up --build
+
+## API Endpoints
+
+```md
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | Check API status |
+| GET | `/health` | Health check endpoint |
+| GET | `/info` | Get service information |
+| GET | `/visits` | Get health check visit count |
+| GET | `/redis-test` | Test Redis connection |
+| GET | `/disk` | Get disk usage metrics |
+| GET | `/disk/last` | Get the latest cached disk metrics |
+| GET | `/disk/history` | Get disk metric history |
+| GET | `/memory` | Get memory usage metrics |
+| GET | `/cpu` | Get CPU usage percentage |
+| GET | `/uptime` | Get system uptime |
+| GET | `/metrics/summary` | Get disk, memory, and CPU metrics together |
+
+### Disk query parameters
+
+The `/disk` endpoint supports two optional query parameters:
+
+| Parameter | Description | Example |
+|---|---|---|
+| `min_usage` | Only return disk partitions with usage greater than or equal to this value | `/disk?min_usage=70` |
+| `top_n` | Return only the top N disk partitions sorted by usage | `/disk?top_n=3` |
+
+Example:
+
+```text
+/disk?min_usage=70&top_n=2
+```
+
+
+## Response Format
+
+```md
+
+Successful responses follw this format:
+
+```json
+{
+    "message":"disk info fetched successfully",
+    "data":[],
+    "timestamp":"2026-05-08T12:00:00+00:00"
+}
+```
+Error responses follw this format
+
+```json
+{
+  "message": "request failed",
+  "data": null,
+  "error": "error detail",
+  "timestamp": "2026-05-08T12:00:00+00:00"
+}
+```
+
+```
+
+
+## Running Tests
+
+Install development dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run tests:
+
+python -m pytest -q
+
+Run lint checks:
+
+flake8 .
+
+The tests use pytest, FastAPI TestClient, and monkeypatch to mock Redis and system metric functions. This makes the test suite fast and independent of external services.
+
+
+#  CI Pipeline
+
+```md
+## CI Pipeline
+
+This project uses GitHub Actions for continuous integration. The CI pipeline runs on pushes and pull requests to the `main` branch.
+
+The pipeline performs the following steps:
+
+- Install Python dependencies
+- Run flake8 checks
+- Run pytest tests
+- Build the Docker image
+```
+
+
+## What I Learned
+
+Through this project, I practiced:
+
+- Building REST APIs with FastAPI
+- Separating routes, services, and utility functions
+- Reading Linux system metrics from commands and `/proc` files
+- Using Redis for caching and simple counters
+- Writing stable tests with pytest and monkeypatch
+- Containerizing a Python API with Docker
+- Setting up a CI pipeline with GitHub Actions
+- Check out logging to fix mistakes
+- Concern difference between new and old data model
+
+
+## Future Improvements
+
+- Replace shell commands with `psutil` for better portability
+- Add Pydantic response models
+- Add authentication for protected endpoints
+- Add Prometheus and Grafana integration
+- Store historical metrics in a database
+- Add alerting when CPU, memory, or disk usage exceeds a threshold
+- Improve logging and error tracking to make debugging easier
+- Compare current and previous metric data to detect meaningful changes
+- Add data visualization to display system metrics with charts
